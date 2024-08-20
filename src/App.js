@@ -27,4 +27,4 @@ console.log("Connected to db!");
 app.listen(3001, () => console.log(`Server Up and running at 3001`));
 
 app.use("/api/auth", authRoutes);
-app.use("/user", userRoutes);
+app.use("/api/user", userRoutes);

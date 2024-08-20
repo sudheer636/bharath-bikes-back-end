@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const { userSchema, adminSchema } = require("../../Schema");
 const verifyToken = require("../../auth-token");
+const { addToCache } = require("../controllers/userController");
 
 exports.login = async (req, res) => {
   try {
@@ -61,6 +62,7 @@ exports.register = async (req, res) => {
       UserId,
     });
     const savedUser = await newUser.save();
+    addToCache(UserId, Username);
     console.log("User ID and password saved in db", savedUser);
     return res.status(200).json({ message: "Successfully registered" });
   } catch (err) {
@@ -73,18 +75,18 @@ exports.getUserDetails = [
   verifyToken,
   async (req, res) => {
     try {
-      const username = req.username;
-      const existingUser = await userSchema.findOne({ Username: username });
+      const users = await userSchema.find({}, 'Username UserId -_id');
+      const userMap = {};
+      users.forEach(user => {
+        userMap[user.UserId] = user.Username;
+      });
 
-      if (existingUser) {
-        return res.status(200).json({
-          Username: existingUser.Username,
-          Email: existingUser.Email
-        });
+      if (Object.keys(userMap).length) {
+        return res.status(200).json(userMap);
+      } else {
+        console.log("No users found in db");
+        return res.status(404).json({ message: "No users found" });
       }
-
-      console.log("Username not available in db");
-      return res.status(200).json({ message: "Username not available" });
     } catch (error) {
       console.error("Error in getUserDetails:", error);
       return res.status(500).json({ message: "Internal Server Error" });
@@ -121,10 +123,16 @@ exports.refreshToken = async (req, res) => {
     const existingUser = await userSchema.findOne({ Username: decoded.username });
 
     if (existingUser) {
+      const payload = {
+        username: decoded.username,
+        selectedBike: decoded.selectedBike,
+        UserId: decoded.currentPage === 'admin' ? 'adminUser' : decoded.UserId
+      };
+
       const newToken = jwt.sign(
-        { username: existingUser.Username },
+        payload,
         process.env.JWT_SECRET,
-        { expiresIn: '5m' } 
+        { expiresIn: '5m' }
       );
       return res.status(200).json({ newToken });
     } else {

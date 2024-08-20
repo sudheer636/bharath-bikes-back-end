@@ -1,11 +1,12 @@
 const Bull = require('bull');
+require("dotenv").config();
 const { bikesSchema } = require('../Schema');
 
 const jobQueue = new Bull('jobQueue', {
   redis: {
-    port: 11411,
-    host: 'redis-11411.c277.us-east-1-3.ec2.redns.redis-cloud.com',
-    password: 'PgBUYi3mbJ0KN63JJ7hs4SoqevfPkqrw',
+    port: process.env.redisPort,
+    host: process.env.redisHost,
+    password: process.env.redisPassword,
   },
 });
 
@@ -23,7 +24,7 @@ jobQueue.process(async (job) => {
   } catch (error) {
     console.error('Error processing job:', job.data.JobId, error);
     await job.update({ failedReason: error.message });
-    const result = await bikesSchema.findOneAndUpdate(
+    await bikesSchema.findOneAndUpdate(
       { JobId: job.data.JobId },
       { Status: 'Failed' },
       { new: true }
